@@ -1,0 +1,61 @@
+// Prisma Schema for AI Integration Slice (Assessment 3)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+model User {
+  id        String      @id @default(cuid())
+  email     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  jobs      UploadJob[]
+}
+
+model UploadJob {
+  id               String       @id @default(cuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Storage reference only - files NEVER live in PostgreSQL
+  storageKey       String
+  originalFilename String
+  mimeType         String
+  fileSizeBytes    Int
+  
+  // Job execution state & metadata
+  status           JobStatus    @default(pending)
+  attempts         Int          @default(0)
+  errorMessage     String?
+  jobType          String       @default("primary") // "primary" or "followup"
+  
+  // Relationship for follow-up actions (e.g. Summarise)
+  parentJobId      String?
+  parentJob        UploadJob?   @relation("JobFollowups", fields: [parentJobId], references: [id], onDelete: SetNull)
+  followupJobs     UploadJob[]  @relation("JobFollowups")
+  
+  // Model output storage (raw for audit, Json for validated result)
+  rawOutput        String?
+  resultData       Json?
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Indexes on all filter and sort columns per database-schema.md
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([parentJobId])
+}
