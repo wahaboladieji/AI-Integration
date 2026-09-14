@@ -1,67 +1,50 @@
+import { z } from 'zod';
+
 /**
- * Structured Output Schemas & Validation Logic
+ * Structured Output Schemas & Validation Logic using Zod
  * 
  * Rules from structured-output-validation-and-retry/SKILL.md:
- * - Schema defined in application code.
- * - Application-level validation on receipt.
+ * - Schema defined in application code using Zod.
+ * - Application-level validation on receipt using Zod safeParse.
  * - Retry logic and graceful fallbacks for validation failure.
  */
 
-export interface PrimaryAnalysisResult {
-  documentType: string;
-  originalFilename: string;
-  extractedTopics: string[];
-  structuredNotes: Array<{
-    section: string;
-    content: string;
-  }>;
-  confidenceScore: number;
-  processedAt: string;
-  rawTranscription?: string;
-}
+// 1. Zod Schema for Primary Analysis Result (Role 1 Gemini OCR -> Role 2 DeepSeek Structuring)
+export const PrimaryAnalysisResultSchema = z.object({
+  documentType: z.string(),
+  originalFilename: z.string(),
+  extractedTopics: z.array(z.string()),
+  structuredNotes: z.array(
+    z.object({
+      section: z.string(),
+      content: z.string(),
+    })
+  ),
+  confidenceScore: z.number(),
+  processedAt: z.string().optional(),
+  rawTranscription: z.string().optional(),
+});
 
-export interface FollowupSummaryResult {
-  action: string;
-  summaryTitle: string;
-  keyPoints: string[];
-  wordCount: number;
-  generatedAt: string;
-}
+export type PrimaryAnalysisResult = z.infer<typeof PrimaryAnalysisResultSchema>;
 
+// 2. Zod Schema for Follow-up Action Executive Summary
+export const FollowupSummaryResultSchema = z.object({
+  action: z.string(),
+  summaryTitle: z.string(),
+  keyPoints: z.array(z.string()),
+  wordCount: z.number(),
+  generatedAt: z.string().optional(),
+});
+
+export type FollowupSummaryResult = z.infer<typeof FollowupSummaryResultSchema>;
+
+// 3. Validation Type Guard Functions using Zod safeParse
 export function validatePrimaryResult(data: unknown): data is PrimaryAnalysisResult {
-  if (typeof data !== 'object' || data === null) return false;
-  const obj = data as Record<string, unknown>;
-  
-  if (typeof obj.documentType !== 'string' || typeof obj.originalFilename !== 'string') {
-    return false;
-  }
-  if (!Array.isArray(obj.extractedTopics) || !obj.extractedTopics.every((t) => typeof t === 'string')) {
-    return false;
-  }
-  if (!Array.isArray(obj.structuredNotes)) {
-    return false;
-  }
-  for (const item of obj.structuredNotes) {
-    if (typeof item !== 'object' || item === null) return false;
-    const noteObj = item as Record<string, unknown>;
-    if (typeof noteObj.section !== 'string' || typeof noteObj.content !== 'string') {
-      return false;
-    }
-  }
-  if (typeof obj.confidenceScore !== 'number') {
-    return false;
-  }
-  return true;
+  const parseResult = PrimaryAnalysisResultSchema.safeParse(data);
+  return parseResult.success;
 }
 
 export function validateFollowupResult(data: unknown): data is FollowupSummaryResult {
-  if (typeof data !== 'object' || data === null) return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.action === 'string' &&
-    typeof obj.summaryTitle === 'string' &&
-    Array.isArray(obj.keyPoints) &&
-    obj.keyPoints.every((kp) => typeof kp === 'string') &&
-    typeof obj.wordCount === 'number'
-  );
+  const parseResult = FollowupSummaryResultSchema.safeParse(data);
+  return parseResult.success;
 }

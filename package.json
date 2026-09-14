@@ -16,7 +16,8 @@
     "next": "^15.2.0",
     "openai": "^7.15.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.5",
